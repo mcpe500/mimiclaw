@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  mimiclaw:
+    build: .
+    container_name: mimiclaw
+    restart: unless-stopped
+    ports:
+      - "18789:18789"
+    volumes:
+      - ./data:/data
+    environment:
+      - MIMI_SECRET_TG_TOKEN=${TG_TOKEN:-}
+      - MIMI_SECRET_API_KEY=${API_KEY:-}
+      - MIMI_SECRET_MODEL=${MODEL:-claude-opus-4-5}

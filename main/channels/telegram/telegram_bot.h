@@ -25,3 +25,6 @@ esp_err_t telegram_send_message(const char *chat_id, const char *text);
  */
 esp_err_t telegram_set_token(const char *token);
 
+esp_err_t telegram_send_photo(const char *chat_id, const char *file_path, const char *caption);
+esp_err_t telegram_download_file(const char *file_id, char *local_path, size_t path_size);
+

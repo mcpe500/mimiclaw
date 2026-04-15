@@ -11,9 +11,9 @@
 
 static const char *TAG = "session";
 
-static void session_path(const char *chat_id, char *buf, size_t size)
+static void session_path(const char *chat_id, const char *user_id, char *buf, size_t size)
 {
-    snprintf(buf, size, "%s/tg_%s.jsonl", MIMI_SPIFFS_SESSION_DIR, chat_id);
+    snprintf(buf, size, "%s/tg_%s_u_%s.jsonl", MIMI_SPIFFS_SESSION_DIR, chat_id, user_id);
 }
 
 esp_err_t session_mgr_init(void)
@@ -22,10 +22,10 @@ esp_err_t session_mgr_init(void)
     return ESP_OK;
 }
 
-esp_err_t session_append(const char *chat_id, const char *role, const char *content)
+esp_err_t session_append(const char *chat_id, const char *user_id, const char *role, const char *content)
 {
     char path[64];
-    session_path(chat_id, path, sizeof(path));
+    session_path(chat_id, user_id, path, sizeof(path));
 
     FILE *f = fopen(path, "a");
     if (!f) {
@@ -50,10 +50,10 @@ esp_err_t session_append(const char *chat_id, const char *role, const char *cont
     return ESP_OK;
 }
 
-esp_err_t session_get_history_json(const char *chat_id, char *buf, size_t size, int max_msgs)
+esp_err_t session_get_history_json(const char *chat_id, const char *user_id, char *buf, size_t size, int max_msgs)
 {
     char path[64];
-    session_path(chat_id, path, sizeof(path));
+    session_path(chat_id, user_id, path, sizeof(path));
 
     FILE *f = fopen(path, "r");
     if (!f) {
@@ -125,10 +125,10 @@ esp_err_t session_get_history_json(const char *chat_id, char *buf, size_t size, 
     return ESP_OK;
 }
 
-esp_err_t session_clear(const char *chat_id)
+esp_err_t session_clear(const char *chat_id, const char *user_id)
 {
     char path[64];
-    session_path(chat_id, path, sizeof(path));
+    session_path(chat_id, user_id, path, sizeof(path));
 
     if (remove(path) == 0) {
         ESP_LOGI(TAG, "Session %s cleared", chat_id);

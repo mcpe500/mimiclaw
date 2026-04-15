@@ -7,7 +7,9 @@
 /* Channel identifiers */
 #define MIMI_CHAN_TELEGRAM   "telegram"
 #define MIMI_CHAN_FEISHU     "feishu"
+#define MIMI_CHAN_WHATSAPP   "whatsapp"
 #define MIMI_CHAN_WEBSOCKET  "websocket"
+#define MIMI_CHAN_SLACK      "slack"
 #define MIMI_CHAN_CLI        "cli"
 #define MIMI_CHAN_SYSTEM     "system"
 
@@ -16,6 +18,14 @@ typedef struct {
     char channel[16];       /* "telegram", "websocket", "cli" */
     char chat_id[96];       /* Telegram/Feishu chat_id, open_id, or WS client id */
     char *content;          /* Heap-allocated message text (caller must free) */
+    
+    /* F2: Extended fields for unified message schema */
+    char user_id[64];      /* User identifier from channel */
+    char message_id[64];    /* Message ID from channel */
+    int media_count;        /* Number of media attachments (0-4) */
+    char media_paths[4][64];/* Media file paths */
+    char reply_to[64];      /* Message ID being replied to */
+    char metadata[256];      /* Additional channel-specific data (JSON) */
 } mimi_msg_t;
 
 /**

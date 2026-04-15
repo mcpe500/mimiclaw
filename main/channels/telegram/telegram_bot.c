@@ -318,9 +318,6 @@ static void process_updates(const char *json_str)
         cJSON *message = cJSON_GetObjectItem(update, "message");
         if (!message) continue;
 
-        cJSON *text = cJSON_GetObjectItem(message, "text");
-        if (!text || !cJSON_IsString(text)) continue;
-
         cJSON *chat = cJSON_GetObjectItem(message, "chat");
         if (!chat) continue;
 
@@ -353,19 +350,131 @@ static void process_updates(const char *json_str)
             seen_msg_insert(msg_key);
         }
 
-        ESP_LOGI(TAG, "Message update_id=%" PRId64 " message_id=%d from chat %s: %.40s...",
-                 uid, msg_id_val, chat_id_str, text->valuestring);
-
-        /* Push to inbound bus */
-        mimi_msg_t msg = {0};
-        strncpy(msg.channel, MIMI_CHAN_TELEGRAM, sizeof(msg.channel) - 1);
-        strncpy(msg.chat_id, chat_id_str, sizeof(msg.chat_id) - 1);
-        msg.content = strdup(text->valuestring);
-        if (msg.content) {
-            if (message_bus_push_inbound(&msg) != ESP_OK) {
-                ESP_LOGW(TAG, "Inbound queue full, drop telegram message");
-                free(msg.content);
+        const char *from_id = NULL;
+        cJSON *from = cJSON_GetObjectItem(message, "from");
+        if (from) {
+            cJSON *from_id_obj = cJSON_GetObjectItem(from, "id");
+            if (from_id_obj && cJSON_IsString(from_id_obj)) {
+                from_id = from_id_obj->valuestring;
+            } else if (from_id_obj && cJSON_IsNumber(from_id_obj)) {
+                static char from_id_buf[32];
+                snprintf(from_id_buf, sizeof(from_id_buf), "%.0f", from_id_obj->valuedouble);
+                from_id = from_id_buf;
             }
+        }
+
+        char msg_id_str[32] = {0};
+        if (msg_id_val >= 0) {
+            snprintf(msg_id_str, sizeof(msg_id_str), "%d", msg_id_val);
+        }
+
+        /* Handle text messages */
+        cJSON *text = cJSON_GetObjectItem(message, "text");
+        if (text && cJSON_IsString(text)) {
+            ESP_LOGI(TAG, "Message update_id=%" PRId64 " message_id=%d from chat %s: %.40s...",
+                     uid, msg_id_val, chat_id_str, text->valuestring);
+
+            mimi_msg_t msg = {0};
+            strncpy(msg.channel, MIMI_CHAN_TELEGRAM, sizeof(msg.channel) - 1);
+            strncpy(msg.chat_id, chat_id_str, sizeof(msg.chat_id) - 1);
+            msg.content = strdup(text->valuestring);
+            if (from_id) strncpy(msg.user_id, from_id, sizeof(msg.user_id) - 1);
+            if (msg_id_str[0]) strncpy(msg.message_id, msg_id_str, sizeof(msg.message_id) - 1);
+            if (msg.content) {
+                if (message_bus_push_inbound(&msg) != ESP_OK) {
+                    ESP_LOGW(TAG, "Inbound queue full, drop telegram message");
+                    free(msg.content);
+                }
+            }
+            continue;
+        }
+
+        /* Handle photo messages */
+        cJSON *photo_array = cJSON_GetObjectItem(message, "photo");
+        if (photo_array && cJSON_IsArray(photo_array) && cJSON_GetArraySize(photo_array) > 0) {
+            int last_idx = cJSON_GetArraySize(photo_array) - 1;
+            cJSON *photo = cJSON_GetArrayItem(photo_array, last_idx);
+            cJSON *file_id_obj = cJSON_GetObjectItem(photo, "file_id");
+
+            if (file_id_obj && cJSON_IsString(file_id_obj)) {
+                mimi_msg_t msg = {0};
+                strncpy(msg.channel, MIMI_CHAN_TELEGRAM, sizeof(msg.channel) - 1);
+                strncpy(msg.chat_id, chat_id_str, sizeof(msg.chat_id) - 1);
+                if (from_id) strncpy(msg.user_id, from_id, sizeof(msg.user_id) - 1);
+                if (msg_id_str[0]) strncpy(msg.message_id, msg_id_str, sizeof(msg.message_id) - 1);
+
+                cJSON *caption = cJSON_GetObjectItem(message, "caption");
+                if (caption && cJSON_IsString(caption)) {
+                    msg.content = strdup(caption->valuestring);
+                } else {
+                    msg.content = strdup("[photo]");
+                }
+
+                msg.media_count = 1;
+                strncpy(msg.media_paths[0], file_id_obj->valuestring, sizeof(msg.media_paths[0]) - 1);
+
+                message_bus_push_inbound(&msg);
+                continue;
+            }
+        }
+
+        /* Handle document messages */
+        cJSON *doc = cJSON_GetObjectItem(message, "document");
+        if (doc && cJSON_IsObject(doc)) {
+            cJSON *file_id_obj = cJSON_GetObjectItem(doc, "file_id");
+            cJSON *doc_name = cJSON_GetObjectItem(doc, "file_name");
+
+            mimi_msg_t msg = {0};
+            strncpy(msg.channel, MIMI_CHAN_TELEGRAM, sizeof(msg.channel) - 1);
+            strncpy(msg.chat_id, chat_id_str, sizeof(msg.chat_id) - 1);
+            if (from_id) strncpy(msg.user_id, from_id, sizeof(msg.user_id) - 1);
+            if (msg_id_str[0]) strncpy(msg.message_id, msg_id_str, sizeof(msg.message_id) - 1);
+
+            char doc_desc[256];
+            snprintf(doc_desc, sizeof(doc_desc), "[document: %s]",
+                     doc_name ? doc_name->valuestring : "unknown");
+            msg.content = strdup(doc_desc);
+            msg.media_count = 1;
+            if (file_id_obj) strncpy(msg.media_paths[0], file_id_obj->valuestring, sizeof(msg.media_paths[0]) - 1);
+
+            message_bus_push_inbound(&msg);
+            continue;
+        }
+
+        /* Handle voice messages */
+        cJSON *voice = cJSON_GetObjectItem(message, "voice");
+        if (voice && cJSON_IsObject(voice)) {
+            cJSON *file_id_obj = cJSON_GetObjectItem(voice, "file_id");
+
+            mimi_msg_t msg = {0};
+            strncpy(msg.channel, MIMI_CHAN_TELEGRAM, sizeof(msg.channel) - 1);
+            strncpy(msg.chat_id, chat_id_str, sizeof(msg.chat_id) - 1);
+            if (from_id) strncpy(msg.user_id, from_id, sizeof(msg.user_id) - 1);
+            if (msg_id_str[0]) strncpy(msg.message_id, msg_id_str, sizeof(msg.message_id) - 1);
+            msg.content = strdup("[voice]");
+            msg.media_count = 1;
+            if (file_id_obj) strncpy(msg.media_paths[0], file_id_obj->valuestring, sizeof(msg.media_paths[0]) - 1);
+
+            message_bus_push_inbound(&msg);
+            continue;
+        }
+
+        /* Handle video messages */
+        cJSON *video = cJSON_GetObjectItem(message, "video");
+        if (video && cJSON_IsObject(video)) {
+            cJSON *file_id_obj = cJSON_GetObjectItem(video, "file_id");
+
+            mimi_msg_t msg = {0};
+            strncpy(msg.channel, MIMI_CHAN_TELEGRAM, sizeof(msg.channel) - 1);
+            strncpy(msg.chat_id, chat_id_str, sizeof(msg.chat_id) - 1);
+            if (from_id) strncpy(msg.user_id, from_id, sizeof(msg.user_id) - 1);
+            if (msg_id_str[0]) strncpy(msg.message_id, msg_id_str, sizeof(msg.message_id) - 1);
+            msg.content = strdup("[video]");
+            msg.media_count = 1;
+            if (file_id_obj) strncpy(msg.media_paths[0], file_id_obj->valuestring, sizeof(msg.media_paths[0]) - 1);
+
+            message_bus_push_inbound(&msg);
+            continue;
         }
     }
 
@@ -559,5 +668,70 @@ esp_err_t telegram_set_token(const char *token)
 
     strncpy(s_bot_token, token, sizeof(s_bot_token) - 1);
     ESP_LOGI(TAG, "Telegram bot token saved");
+    return ESP_OK;
+}
+
+esp_err_t telegram_download_file(const char *file_id, char *local_path, size_t path_size)
+{
+    if (!file_id || !local_path) return ESP_ERR_INVALID_ARG;
+
+    char method[128];
+    snprintf(method, sizeof(method), "bot%s/getFile?file_id=%s", s_bot_token, file_id);
+
+    char *resp = tg_api_call(method, NULL);
+    if (!resp) {
+        ESP_LOGE(TAG, "getFile API call failed");
+        return ESP_FAIL;
+    }
+
+    cJSON *root = cJSON_Parse(resp);
+    free(resp);
+    if (!root) return ESP_FAIL;
+
+    cJSON *result = cJSON_GetObjectItem(root, "result");
+    cJSON *file_path_obj = result ? cJSON_GetObjectItem(result, "file_path") : NULL;
+
+    if (!file_path_obj || !cJSON_IsString(file_path_obj)) {
+        cJSON_Delete(root);
+        ESP_LOGE(TAG, "No file_path in getFile response");
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    const char *fp = file_path_obj->valuestring;
+
+    snprintf(local_path, path_size, "https://api.telegram.org/file/bot%s/%s", s_bot_token, fp);
+
+    cJSON_Delete(root);
+    ESP_LOGI(TAG, "File download URL constructed: %s", local_path);
+    return ESP_OK;
+}
+
+esp_err_t telegram_send_photo(const char *chat_id, const char *file_path, const char *caption)
+{
+    if (!chat_id || !file_path) return ESP_ERR_INVALID_ARG;
+
+    cJSON *payload = cJSON_CreateObject();
+    cJSON_AddStringToObject(payload, "chat_id", chat_id);
+    cJSON_AddStringToObject(payload, "photo", file_path);
+    if (caption) cJSON_AddStringToObject(payload, "caption", caption);
+
+    char *json_str = cJSON_PrintUnformatted(payload);
+    cJSON_Delete(payload);
+
+    if (!json_str) return ESP_FAIL;
+
+    char method[128];
+    snprintf(method, sizeof(method), "bot%s/sendPhoto", s_bot_token);
+
+    char *resp = tg_api_call(method, json_str);
+    free(json_str);
+
+    if (!resp) {
+        ESP_LOGE(TAG, "sendPhoto failed");
+        return ESP_FAIL;
+    }
+
+    free(resp);
+    ESP_LOGI(TAG, "Photo sent to %s", chat_id);
     return ESP_OK;
 }

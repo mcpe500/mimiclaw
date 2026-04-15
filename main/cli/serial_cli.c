@@ -217,6 +217,7 @@ static int cmd_session_list(int argc, char **argv)
 /* --- session_clear command --- */
 static struct {
     struct arg_str *chat_id;
+    struct arg_str *user_id;
     struct arg_end *end;
 } session_clear_args;
 
@@ -227,7 +228,9 @@ static int cmd_session_clear(int argc, char **argv)
         arg_print_errors(stderr, session_clear_args.end, argv[0]);
         return 1;
     }
-    if (session_clear(session_clear_args.chat_id->sval[0]) == ESP_OK) {
+    const char *uid = session_clear_args.user_id->count > 0
+        ? session_clear_args.user_id->sval[0] : "unknown";
+    if (session_clear(session_clear_args.chat_id->sval[0], uid) == ESP_OK) {
         printf("Session cleared.\n");
     } else {
         printf("Session not found.\n");
@@ -956,7 +959,8 @@ esp_err_t serial_cli_init(void)
 
     /* session_clear */
     session_clear_args.chat_id = arg_str1(NULL, NULL, "<chat_id>", "Chat ID to clear");
-    session_clear_args.end = arg_end(1);
+    session_clear_args.user_id = arg_str0(NULL, NULL, "[user_id]", "User ID (default: unknown)");
+    session_clear_args.end = arg_end(2);
     esp_console_cmd_t sess_clear_cmd = {
         .command = "session_clear",
         .help = "Clear a session",

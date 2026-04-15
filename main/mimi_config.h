@@ -46,6 +46,12 @@
 #ifndef MIMI_SECRET_TAVILY_KEY
 #define MIMI_SECRET_TAVILY_KEY      ""
 #endif
+#ifndef MIMI_SECRET_SLACK_APP_TOKEN
+#define MIMI_SECRET_SLACK_APP_TOKEN ""
+#endif
+#ifndef MIMI_SECRET_SLACK_BOT_TOKEN
+#define MIMI_SECRET_SLACK_BOT_TOKEN ""
+#endif
 
 /* WiFi */
 #define MIMI_WIFI_MAX_RETRY          10
@@ -69,6 +75,21 @@
 #define MIMI_FEISHU_WEBHOOK_PORT         18790
 #define MIMI_FEISHU_WEBHOOK_PATH         "/feishu/events"
 #define MIMI_FEISHU_WEBHOOK_MAX_BODY     (16 * 1024)
+
+/* WhatsApp Bot */
+#define MIMI_WHATSAPP_POLL_INTERVAL_MS   5000
+#define MIMI_WHATSAPP_POLL_STACK         (12 * 1024)
+#define MIMI_WHATSAPP_POLL_PRIO          5
+#define MIMI_WHATSAPP_POLL_CORE          0
+#define MIMI_WHATSAPP_API_VERSION        "v18.0"
+
+#ifndef MIMI_SECRET_WHATSAPP_TOKEN
+#define MIMI_SECRET_WHATSAPP_TOKEN        ""
+#endif
+
+#ifndef MIMI_SECRET_WHATSAPP_PHONE_ID
+#define MIMI_SECRET_WHATSAPP_PHONE_ID    ""
+#endif
 
 /* Agent Loop */
 #define MIMI_AGENT_STACK             (24 * 1024)
@@ -109,6 +130,7 @@
 #define MIMI_USER_FILE               MIMI_SPIFFS_CONFIG_DIR "/USER.md"
 #define MIMI_CONTEXT_BUF_SIZE        (16 * 1024)
 #define MIMI_SESSION_MAX_MSGS        20
+#define MIMI_MEMORY_RECENT_DAYS      7
 
 /* Cron / Heartbeat */
 #define MIMI_CRON_FILE               MIMI_SPIFFS_BASE "/cron.json"
@@ -136,9 +158,11 @@
 #define MIMI_NVS_WIFI                "wifi_config"
 #define MIMI_NVS_TG                  "tg_config"
 #define MIMI_NVS_FEISHU              "feishu_config"
+#define MIMI_NVS_WHATSAPP            "whatsapp_config"
 #define MIMI_NVS_LLM                 "llm_config"
 #define MIMI_NVS_PROXY               "proxy_config"
 #define MIMI_NVS_SEARCH              "search_config"
+#define MIMI_NVS_SLACK               "slack_config"
 
 /* NVS Keys */
 #define MIMI_NVS_KEY_SSID            "ssid"
