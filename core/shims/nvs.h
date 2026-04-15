@@ -1,5 +1,6 @@
 #pragma once
 #include <stddef.h>
+#include "esp_err.h"
 
 typedef int nvs_handle_t;
 

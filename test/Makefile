@@ -1,6 +1,6 @@
 CC      = gcc
 CFLAGS  = -std=c11 -Wall -Wextra -g -O0
-CFLAGS += -I$(SHIM_DIR) -I$(MAIN_DIR) -I$(VENDOR_DIR)
+CFLAGS += -I$(SHIM_DIR) -I$(MAIN_DIR) -I$(VENDOR_DIR) -I$(VENDOR_DIR)/unity -I$(VENDOR_DIR)/cJSON
 CFLAGS += -DMIMI_SPIFFS_BASE=\"/tmp/mimiclaw\" -DMIMI_SPIFFS_SESSION_DIR=\"/tmp/mimiclaw/sessions\"
 CFLAGS += -DMIMI_SPIFFS_MEMORY_DIR=\"/tmp/mimiclaw/memory\" -DMIMI_SPIFFS_CONFIG_DIR=\"/tmp/mimiclaw/config\"
 CFLAGS += -DMIMI_MEMORY_FILE=\"/tmp/mimiclaw/memory/MEMORY.md\"
@@ -39,6 +39,8 @@ TEST_SRCS = $(wildcard unit/test_*.c)
 TESTS     = $(patsubst unit/%.c,$(BUILD_DIR)/%,$(TEST_SRCS))
 
 VENDOR_SRCS = $(VENDOR_DIR)/unity/unity.c $(VENDOR_DIR)/cJSON/cJSON.c
+MAIN_SRCS   = $(shell find $(MAIN_DIR) -name "*.c" ! -name "mimi.c")
+SHIM_SRCS   = $(shell find $(SHIM_DIR) -name "*.c")
 
 .PHONY: all test clean setup analyze asan coverage full
 
@@ -59,8 +61,8 @@ setup:
 $(BUILD_DIR):
 	@mkdir -p $@
 
-$(BUILD_DIR)/test_%: unit/test_%.c $(VENDOR_SRCS) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -o $@ $< $(VENDOR_SRCS) $(LDFLAGS)
+$(BUILD_DIR)/test_%: unit/test_%.c $(VENDOR_SRCS) $(MAIN_SRCS) $(SHIM_SRCS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -o $@ $< $(VENDOR_SRCS) $(MAIN_SRCS) $(SHIM_SRCS) $(LDFLAGS)
 
 test: $(TESTS)
 	@echo ""
