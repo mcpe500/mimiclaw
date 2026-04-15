@@ -13,7 +13,7 @@ typedef struct {
     const char *url;
     int method;
     int timeout_ms;
-    void *crt_bundle_attach;
+    void (*crt_bundle_attach)(void *);
     esp_err_t (*event_handler)(struct esp_http_client_event_t *evt);
     void *user_data;
     int buffer_size;
@@ -21,11 +21,12 @@ typedef struct {
 
 typedef struct esp_http_client_event_t {
     int event_id;
+    void *data;
+    int data_len;
     void *user_data;
+    esp_http_client_handle_t client;
     const char *header_key;
     const char *header_value;
-    size_t data_len;
-    const char *data;
 } esp_http_client_event_t;
 
 #define HTTP_EVENT_ON_HEADER 1

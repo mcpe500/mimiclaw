@@ -8,6 +8,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static const char *TAG = "tool_gpio";
 
